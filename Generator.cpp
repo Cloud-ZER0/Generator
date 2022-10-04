@@ -1,7 +1,28 @@
 #include "Generator.h"
 
-Generator::Generator(const std::string& filename)
-	:file(filename, std::ios::binary)
+//Generator::Generator(const std::string& filename, const std::string& output, const std::string& offset, const std::string& quointity )
+//	:file(filename, std::ios::binary),
+//	outputFile(output, std::ios::binary),
+//	offset(std::atoi(offset.data())),
+//	quantityOfelem(std::atoi(quointity.data()))
+//{
+//	if (!file.is_open()) {
+//		std::cerr << "cannot open the file\n";
+//		exit(-1);
+//	}
+//	if (!outputFile.is_open()) std::cout << "fuck\n";
+//	file.seekg(0, std::ios::end);
+//	int size = static_cast<int>(file.tellg());
+//	file.seekg(0, std::ios::beg);
+//	str.resize(size);
+//	file.read(str.data(), size);
+//	file.close();
+//	str.push_back(0x0a);
+//}
+
+Generator::Generator(const std::string& filename, const std::string& output)
+	:file(filename, std::ios::binary),
+	outputFile(output, std::ios::binary)
 {
 	if (!file.is_open()) {
 		std::cerr << "cannot open the file\n";
@@ -41,8 +62,8 @@ void Generator::clear()
 	for (auto i = 0; i < str.size(); ++i) {
 		if ((i == 0 and str[i] == '.') or (i == str.size() - 2 and str[i] == '.')) str[i] = ' ';
 		else if (i != 0 and i != str.size() - 1 and str[i] == '.') {
-			if (str[i - 1] == ' '
-				or str[i - 1] == '.'
+			if (/*str[i - 1] == ' '*/
+				str[i - 1] == '.'
 				or str[i + 1] == ' '
 				or str[i + 1] == '.') 
 				str[i] = ' ';
@@ -53,8 +74,9 @@ void Generator::clear()
 		if (i != str.begin() and i != (str.end() - 1) and *i == ' ') {
 			if (*(i - 1) == ' '
 				or *(i + 1) == ' '
-				or *(i-1) == '.'
-				or *(i+1) == '.') {
+				/* 
+				or *(i+1) == '.'*/
+				or *(i - 1) == '.') {
 				str.erase(i);
 				--i;
 			}
@@ -101,8 +123,18 @@ void Generator::clear()
 		}
 	}
 
+
+	for (auto it = str.begin(); it != str.end(); ++it) {
+		if (*it == '.' and it == str.begin()) {
+			str.insert(it, '0');
+		}
+		if (*it == '.' and it != str.begin() and (*(it - 1) == ' ' or *(it-1) == 0x0a)) {
+			str.insert(it, '0');
+			++it;
+		}
+	}
+
 	int ctr{};
-	std::string::iterator copy{};
 	for (auto it = str.begin(); it != str.end(); ++it) {
 		if (*it == '.') {
 			auto copy = it;
@@ -134,6 +166,7 @@ void Generator::preProcessor() {
 	for (auto i : str) {
 		if (i == 0x0a) ++row;
 	}
+	rows = row;
 	std::vector<int> collumn(row, 0);
 	
 	auto counter = 0;
@@ -143,23 +176,121 @@ void Generator::preProcessor() {
 		}
 		if (str[i] == 0x0a) ++counter;
 	}
+	grandCollumn = collumn;
 	auto spaces_counter = collumn[0];
 
 	for (auto i : collumn) {
 		if (i != spaces_counter) {
-			std::cerr << "Different values quantity\n";
-			exit(-47);
+			std::cout << "Different values quantity\n";
 		}
 	}
 	
-	for (auto i = 0; i < str.size(); ++i) {
+	/*for (auto i = 0; i < str.size(); ++i) {
 		str[i] += 22 * !(str[i] - 0x0a);
-	}
+	}*/ // делает матрицу линейной
 	
-	if (row != collumn.size()) {
-		std::cerr << "MATRIX IS NOT KVADRAT\n";
-		exit(-156);
+	if (row != collumn[0] + 1) {
+		std::cout << "Not squared Matrix\n";
+		//exit(-156);
 	}
 
+	int summBuffer{ 0 };
+	int stepen{ 0 };
+	std::string buffer{};
+	
+	for (auto it = str.begin(); it != str.end(); ++it) {
+		if (*it == '.') {
+			auto from = it;
+
+			while (*it != ' ' and *it != 0x0a) {
+				++it;
+			}
+
+			auto to = it;
+			std::copy(++from, to, std::back_inserter(buffer));
+			summBuffer += std::atoi(buffer.data());
+			stepen = buffer.size();
+			buffer.clear();
+		}
+		if (*it == 0x0a) {
+			if (summBuffer != pow(10, stepen)) {
+				std::cout << "!= 1\n";
+			}
+			summBuffer = 0;
+		}
+	}
+	
+	if (offset < 0 or offset - row > 255) {
+		std::cout << "WRONG OFFSET\n";
+	}
+	if (quantityOfelem < 0) {
+		std::cout << "WRONG QAUNTITY\n";
+	}
+
+}
+
+void Generator::generate() 
+{
+	srand(time(NULL));
+	
+	std::vector<std::vector<double>> probabilities{};
+	probabilities.resize(rows);
+	
+	std::string buffer{};
+	std::size_t k = 0;
+
+	for (auto it = str.begin(); it != str.end() and k < rows; ++it) {
+
+		if (it == str.begin() or *it != ' ' and *it != 0x0a) {
+			auto from = it;
+
+			while (*it != ' ' and *it != 0x0a) {
+				++it;
+			}
+
+			auto to = it;
+			std::copy(from, to, std::back_inserter(buffer));
+			double value{};
+			std::from_chars(buffer.data(), buffer.data() + buffer.size(), value);
+			buffer.clear();
+			probabilities[k].push_back(value);
+			--it;
+		}
+		else if (*it == ' ') {
+			auto from = ++it;
+
+			while (*it != ' ' and *it != 0x0a) {
+				++it;
+			}
+
+			auto to = it;
+			std::copy(from, to, std::back_inserter(buffer));
+			double value{};
+			std::from_chars(buffer.data(), buffer.data() + buffer.size(), value);
+			buffer.clear();
+			probabilities[k].push_back(value);
+			--it;
+
+		}
+		else if (*it = 0x0a) ++k;
+	}
+
+	/*for (auto i = 0; i < 100; ++i) {
+		auto ch = rand() % 255;
+		outputFile.put(ch);
+
+	}*/
+
+	if (!outputFile.is_open()) std::cout << "ne otkrut\n";
+	for (auto i = 0; i < quantityOfelem; ++i) {
+		auto symbol = rand() % 12;
+		for (auto j = 0; j < grandCollumn[0]; ++j) {
+			if (symbol < probabilities[0].at(j)) {
+				outputFile.put(offset + j);
+				j = grandCollumn[0];
+			}
+		}
+	}
+	outputFile.close();
 
 }

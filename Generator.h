@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <charconv>
 
 class Generator
 {
@@ -15,7 +16,9 @@ public:
 
 	Generator& operator = (const Generator& other) = delete;
 
-	Generator(const std::string& filename);
+	//Generator(const std::string& filename, const std::string& output, const std::string& offset, const std::string& quantity);
+	
+	Generator(const std::string& filename, const std::string& output);
 
 	void clear();
 
@@ -27,11 +30,12 @@ public:
 
 private:
 	std::ifstream file{};
-	std::fstream outputFile{};
-	int offset{};
-	int quantityOfelem{};
+	std::ofstream outputFile{};
+	int offset{89};
+	int quantityOfelem{100};
 	std::string str{};
+	std::vector<int> grandCollumn{};
+	int rows = 0;
 
-	void helper_1(const std::size_t& i) const;
 };
 
