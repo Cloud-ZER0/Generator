@@ -31,10 +31,11 @@ public:
 private:
 	std::ifstream file{};
 	std::ofstream outputFile{};
-	int offset{89};
-	int quantityOfelem{100};
+	int offset{78};
+	int quantityOfelem{1000};
 	std::string str{};
 	std::vector<int> grandCollumn{};
+	std::vector<std::vector<int>> borders{};
 	int rows = 0;
 
 };
