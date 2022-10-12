@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 #include <charconv>
+#include <random>
+#include <cassert>
+
 
 class Generator
 {
@@ -27,11 +30,17 @@ public:
 
 	void generate();
 
+private:
+	std::vector<double> Gaus(const std::vector<std::vector<double>>& matrix);
+
+	inline void castToZero(const std::size_t& position, std::vector<double>& matrixRow);
+
+	inline void GausHelper(const std::vector<double>& first, std::vector<double>& second, double value);
 
 private:
 	std::ifstream file{};
 	std::ofstream outputFile{};
-	int offset{78};
+	int offset{48};
 	int quantityOfelem{1000};
 	std::string str{};
 	std::vector<int> grandCollumn{};

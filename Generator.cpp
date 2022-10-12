@@ -37,6 +37,96 @@ Generator::Generator(const std::string& filename, const std::string& output)
 	str.push_back(0x0a);
 }
 
+inline void Generator::castToZero(const std::size_t& position, std::vector<double>& matrixRow)  
+{
+	assert(position < matrixRow.size());
+	auto devisor = matrixRow[position];
+	for (auto i = 0; i < matrixRow.size(); ++i) {
+		matrixRow[i] = (matrixRow[i] == 0) ? 0 : matrixRow[i] / devisor;
+	}
+}
+
+inline void Generator::GausHelper (const std::vector<double>& first, std::vector<double>& second, double value)  
+{
+	assert(first.size() == second.size());
+	for (auto i = 0; i < first.size(); ++i) {
+		if (value < 0) {
+			second[i] = (second[i] == 0) ? 0 :
+				second[i] + (first[i] * abs(value));
+		}
+		else {
+			second[i] = (second[i] == 0) ? 0 :
+				second[i] - (first[i] * value);
+		}
+		
+	}
+}
+
+std::vector<double> Generator::Gaus(const std::vector<std::vector<double>>& matrix)
+{
+	std::vector<std::vector<double>> localCopy{ matrix };
+
+	std::vector<double> vectorOfFree{};
+	vectorOfFree.reserve(localCopy.size() - 1);
+
+	// вектор свободных членов 
+	for (auto i = 0; i < matrix.size() - 1; ++i) {
+		vectorOfFree.push_back(localCopy[i].back());
+		//удаляем из локальной копии матрицы последний элемент, тк как запушили его в специальный вектор
+		localCopy[i].pop_back();
+	}
+	// удаляем последний вектор из локальной матрицы, тк как для рассчёта достаточно matrix.size() - 1 уравнений
+	localCopy.pop_back();
+
+	// построение системы уравнений
+	for (auto i = 0; i < localCopy.size(); ++i) {
+		for(auto j = 0; j < localCopy[i].size(); ++j) {
+		
+			localCopy[i].operator[](j) = (i == j) ?
+				1.0 + vectorOfFree[i] - localCopy[i].operator[](j)
+				: vectorOfFree[i] - localCopy[i].operator[](j);
+		}
+	}
+	// приведение к простой матрице
+	for (auto i = 0; i < localCopy.size(); ++i) {
+		localCopy[i].push_back(vectorOfFree[i]);
+	}
+	
+	// реализация метода Гаусса
+	for (std::size_t i = 0; i < localCopy.size(); ++i) {
+		castToZero(i, localCopy[i]);
+
+		if (i == 0) {
+			for (auto j = i + 1; j < localCopy.size(); ++j) {
+				GausHelper(localCopy[i], localCopy[j], localCopy[j].operator[](i));
+			}
+		}
+		
+		else if (0 < i < localCopy.size()) {
+			for (int j = i - 1; j >= 0; --j) {
+				GausHelper(localCopy[i], localCopy[j], localCopy[j].operator[](i));
+			}
+			for (auto k = i + 1; k < localCopy.size(); ++k) {
+				GausHelper(localCopy[i], localCopy[k], localCopy[k].operator[](i));
+			}
+		}
+	}
+
+	// создаем вектор с ответами и инициализируем результатом, полученным по гаусу
+	std::vector<double> result{};
+	result.reserve(localCopy.size());
+	for (auto&& row : localCopy) {
+		result.push_back(row.back());
+	}
+	double third = 0;
+	for (auto i : result) {
+		third += i;
+	}
+	result.push_back(1 - third);
+
+	return result;
+}
+
 
 void Generator::clear() 
 {
@@ -136,6 +226,7 @@ void Generator::clear()
 	}
 
 	// добавляем 0 после точки, если необходимо.
+	// doesn't work well if the bigest number has 7 numbers after the dot
 	int ctr{};
 	for (auto it = str.begin(); it != str.end(); ++it) {
 		if (*it == '.') {
@@ -251,7 +342,6 @@ void Generator::preProcessor() {
 void Generator::generate() 
 {
 	srand(time(NULL));
-	
 	std::vector<std::vector<double>> probabilities{};
 	probabilities.resize(rows);
 	
@@ -295,50 +385,114 @@ void Generator::generate()
 		else if (*it = 0x0a) ++k;
 	}
 
+	bool tester = false;
 
-	// генерация по строке.
+	k = 0;
 	int64_t K = 2;
 	int D = 2;
-	int L = 1;
+	int64_t L = 1;
 	for (int i = 0; i < str.size(); ++i) {
-		if (str[i] != ' ') ++K;
+		if (str[i] == ' ') break;
+		++k;
 	}
+	k -= 1;
 	for (int i = 1; i < k; ++i) {
 		L *= 10;
 	}
-	for (K; K < L; K *= 2);
-	
-	int toAdd{ 0 };
-	int buf(borders[0].at(0));
-	while (buf != 0)
-	{
-		buf /= 10;
-		++toAdd;
-	}
-	int64_t x = 10;
-	toAdd = (toAdd == 1) ? 0 : toAdd;
-	K *= pow(x, toAdd);
+	for (K = 2; K < L; K *= 2);
 
+
+	std::mt19937 random(K);
+	
+	// генерация по строке.
+	if (tester == true) {
+		int tabl = 106;
+		int counter = 0;
+		if (!outputFile.is_open()) std::cout << "couldn't open the file\n";
+		for (;;) {
+			if (counter == quantityOfelem) break;
+			int64_t symbol = random();
+			std::cout << symbol << '\n';
+
+			for (auto j = 0; j < grandCollumn[0] + 1; ++j) {
+				if (symbol < borders[0].at(j)) {
+					if (counter == tabl) {
+						outputFile.put(0x0a);
+						tabl += 106;
+					}
+					++counter;
+					outputFile.put(offset + j);
+					j = grandCollumn[0] + 1;
+				}
+			}
+		}
+		outputFile.close();
+
+		double entropy{};
+
+		for (std::size_t i = 0; i < grandCollumn[0]; ++i) {
+			if (probabilities[0].at(i) > 1e-9) {
+				entropy -= probabilities[0].at(i) * log(probabilities[0].at(i)) / log(2.);
+			}
+		}
+
+		double superfluity = 1.0 - entropy / (log(static_cast<double>(grandCollumn[0] + 1)) / log(2.));
+		double compressionCaf = 1.0 / (1.0 - superfluity);
+
+		std::cout << "H(A): " << entropy << '\n';
+		std::cout << "nx: " << superfluity << '\n';
+		std::cout << "n/n0: " << compressionCaf << '\n';
+	}
+
+	// если больше 1 колонки
+	std::vector<double> realProbability(Gaus(probabilities));
+	std::vector<double> realBorders = realProbability;
+	for (auto i = 1; i < realBorders.size() - 1; i++) {
+		realBorders[i] += realBorders[i - 1];
+	}
+	if (!outputFile.is_open()) std::cout << "couldn't open the file\n";
+	// генерация первого символа
+	bool toBreak{ false };
+	for (;;) {
+		for (auto i = 0; i < borders.size(); ++i) {
+			int64_t symbol = random();
+			if (symbol < RAND_MAX * realBorders[i]) {
+				outputFile.put(offset + i);
+				toBreak = true;
+				break;
+			}
+		}
+		if (toBreak) break;
+	}
+	// генерация остальных символов
 
 	int tabl = 106;
 	int counter = 0;
+	std::size_t left{ 0 };
 	if (!outputFile.is_open()) std::cout << "couldn't open the file\n";
 	for (;;) {
 		if (counter == quantityOfelem) break;
-		int symbol = rand() % K;
-		for (auto j = 0; j < grandCollumn[0]+1; ++j) {
-			if (symbol < borders[0].at(j)) {
+		int64_t symbol = random();
+		//std::cout << symbol << '\n';
+		left = 0;
+		for (auto j = 0; j < grandCollumn[0] + 1; ++j) {
+			left = j;
+			if (symbol < borders[left].at(j)) {
 				if (counter == tabl) {
 					outputFile.put(0x0a);
 					tabl += 106;
+					left = j;
 				}
 				++counter;
 				outputFile.put(offset + j);
-				j = grandCollumn[0]+1;
+				j = grandCollumn[0] + 1;
 			}
+			//if (left < j) ++left;
 		}
 	}
 	outputFile.close();
-	// Плюс минус работает для 5 знаков после запятой
+
 
 }
+
+// 4003848514
