@@ -35,7 +35,7 @@ private:
 
 	inline void castToZero(const std::size_t& position, std::vector<double>& matrixRow);
 
-	inline void GausHelper(const std::vector<double>& first, std::vector<double>& second, double value);
+	inline void GaussHelper(const std::vector<double>& first, std::vector<double>& second, double value);
 
 private:
 	std::ifstream file{};

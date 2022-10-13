@@ -46,7 +46,7 @@ inline void Generator::castToZero(const std::size_t& position, std::vector<doubl
 	}
 }
 
-inline void Generator::GausHelper (const std::vector<double>& first, std::vector<double>& second, double value)  
+inline void Generator::GaussHelper (const std::vector<double>& first, std::vector<double>& second, double value)  
 {
 	assert(first.size() == second.size());
 	for (auto i = 0; i < first.size(); ++i) {
@@ -98,16 +98,16 @@ std::vector<double> Generator::Gauss(const std::vector<std::vector<double>>& mat
 
 		if (i == 0) {
 			for (auto j = i + 1; j < localCopy.size(); ++j) {
-				GausHelper(localCopy[i], localCopy[j], localCopy[j].operator[](i));
+				GaussHelper(localCopy[i], localCopy[j], localCopy[j].operator[](i));
 			}
 		}
 		
 		else if (0 < i < localCopy.size()) {
 			for (int j = i - 1; j >= 0; --j) {
-				GausHelper(localCopy[i], localCopy[j], localCopy[j].operator[](i));
+				GaussHelper(localCopy[i], localCopy[j], localCopy[j].operator[](i));
 			}
 			for (auto k = i + 1; k < localCopy.size(); ++k) {
-				GausHelper(localCopy[i], localCopy[k], localCopy[k].operator[](i));
+				GaussHelper(localCopy[i], localCopy[k], localCopy[k].operator[](i));
 			}
 		}
 	}
