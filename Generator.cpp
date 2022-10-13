@@ -62,7 +62,7 @@ inline void Generator::GausHelper (const std::vector<double>& first, std::vector
 	}
 }
 
-std::vector<double> Generator::Gaus(const std::vector<std::vector<double>>& matrix)
+std::vector<double> Generator::Gauss(const std::vector<std::vector<double>>& matrix)
 {
 	std::vector<std::vector<double>> localCopy{ matrix };
 
@@ -445,7 +445,7 @@ void Generator::generate()
 	}
 
 	// если больше 1 колонки
-	std::vector<double> realProbability(Gaus(probabilities));
+	std::vector<double> realProbability(Gauss(probabilities));
 	std::vector<double> realBorders = realProbability;
 	for (auto i = 1; i < realBorders.size() - 1; i++) {
 		realBorders[i] += realBorders[i - 1];

@@ -31,7 +31,7 @@ public:
 	void generate();
 
 private:
-	std::vector<double> Gaus(const std::vector<std::vector<double>>& matrix);
+	std::vector<double> Gauss(const std::vector<std::vector<double>>& matrix);
 
 	inline void castToZero(const std::size_t& position, std::vector<double>& matrixRow);
 
