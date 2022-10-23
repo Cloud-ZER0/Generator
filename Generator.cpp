@@ -102,7 +102,7 @@ std::vector<double> Generator::Gauss(const std::vector<std::vector<double>>& mat
 			}
 		}
 		
-		else if (0 < i < localCopy.size()) {
+		else if (0 < i and i < localCopy.size()) {
 			for (int j = i - 1; j >= 0; --j) {
 				GaussHelper(localCopy[i], localCopy[j], localCopy[j].operator[](i));
 			}
@@ -130,7 +130,7 @@ std::vector<double> Generator::Gauss(const std::vector<std::vector<double>>& mat
 
 void Generator::clear() 
 {
-	// убираем все символы, кроме цифр, запятых и точек.
+	/*Убираем все символы кроме цифр, запятых и точек*/ 
 	for (auto& i : str) {
 		switch (i)
 		{
@@ -148,7 +148,7 @@ void Generator::clear()
 			and i != 0x0a)
 			i = ' ';
 	}
-	// меняем точки на пробелы.
+	/*Меняем точки на пробелы*/ 
 	for (auto i = 0; i < str.size(); ++i) {
 		if ((i == 0 and str[i] == '.') or (i == str.size() - 2 and str[i] == '.')) str[i] = ' ';
 		else if (i != 0 and i != str.size() - 1 and str[i] == '.') {
@@ -158,7 +158,7 @@ void Generator::clear()
 				str[i] = ' ';
 		}
 	}
-	// удаляем лишние пробелы.
+	/*Удаляем лишнее пробелы*/
 	for (auto i = str.begin(); i != str.end(); ++i) {
 		if (i != str.begin() and i != (str.end() - 1) and *i == ' ') {
 			if (*(i - 1) == ' '
@@ -169,10 +169,10 @@ void Generator::clear()
 			}
 		}
 	}
-	// удаляем пробел в начале строки, если он есть.
+	/*Удаляем пробел в начале строки, если он есть*/
 	if (str[0] == ' ') str.erase(str.begin());
 
-	// меняем пробелы после новый строки на новые строки.
+	/*Заменяем пробелы после новой строки на переносы строки*/
 	for (auto i = 0; i < str.size(); ++i) {
 		if (i != 0 and i != str.size() - 1) {
 			if ((str[i + 1] == 0x0a and str[i] == ' ')
@@ -182,7 +182,7 @@ void Generator::clear()
 		}
 	}
 
-	// удаляем два и более подряд идущих переноса строки.
+	/*Удаляем два и более идущих подряд переноса строки*/ 
 	for (auto i = str.begin(); i != str.end(); ++i) {
 		if (i != str.begin() and i != (str.end() - 1) and *i == 0x0a) {
 			if (*(i - 1) == 0x0a or *(i + 1) == 0x0a) {
@@ -191,12 +191,12 @@ void Generator::clear()
 			}
 		}
 	}
-	// удаляем пробелы после знака переноса строки (если есть).
+	/*Удаляем пробелы после знака переноса строки*/
 	for (auto it = ++str.begin(); it != str.end(); ++it) {
 		if (*(it - 1) == 0x0a and *it == ' ') str.erase(it);
 	}
 
-	//  находим максимальное количество символов после запятой.
+	/*Находим масимальное количество символов после запятой*/  
 	int max{};
 	int k{};
 	for (auto i = 1; i < str.size(); ++i) {
@@ -225,7 +225,7 @@ void Generator::clear()
 		}
 	}
 
-	// добавляем 0 после точки, если необходимо.
+	/*Добавляем нули перед точкой и после точки, если необходимо*/
 	// doesn't work well if the bigest number has 7 numbers after the dot
 	int ctr{};
 	for (auto it = str.begin(); it != str.end(); ++it) {
@@ -250,41 +250,48 @@ void Generator::clear()
 }
 
 
-void Generator::preProcessor() {
+void Generator::validChecking() {
 
-	// считаем количество строк.
-	int row{};
-	for (auto i : str) {
-		if (i == 0x0a) ++row;
+	for (std::size_t cheker = 0; cheker < str.size(); ++cheker) {
+		if (str[cheker] != '0' and str[cheker + 1] == '.') {
+			std::cerr << "Invalid probabilities\n";
+			exit(-6);
+		}
 	}
-	// пофиксить.
-	rows = row;
-	std::vector<int> collumn(row, 0);
+
+	/*Считаем количество строк*/
+	for (auto i : str) {
+		if (i == 0x0a) ++rows;
+	}
+
+	assert(rows >= 1);
+	grandCollumn.resize(rows);
 	
+	/*Считаем количество коллонок в каждой строке*/
 	auto counter = 0;
 	for (auto i = 0; i < str.size(); ++i) {
 		if (str[i] == 0x20) {
-			collumn[counter] += 1;
+			grandCollumn[counter] += 1;
 		}
 		if (str[i] == 0x0a) ++counter;
 	}
-	grandCollumn = collumn;
-	auto spaces_counter = collumn[0];
 
-	// проверка на одинаковое количество вероятностей в каждой строке. 
-	for (auto i : collumn) {
-		if (i != spaces_counter) {
-			std::cout << "Different values quantity\n";
+	/*Проверяем одинаковое ли каличество вероятностей в каждой строке*/
+	for (auto i : grandCollumn) {
+		if (i != grandCollumn[0]) {
+			std::cerr << "Different values quantity\n";
+			exit(-7);
 		}
 	}
 	
-	// чекаем квадратная ли матрица.
-	if (row != collumn[0] + 1) {
-		std::cout << "Not squared Matrix\n";
+	/*Проверяем квадратная ли матрица*/
+	if (rows != grandCollumn[0] + 1 and rows != 1 and grandCollumn.size() != 1) {
+		std::cerr << "Not squared Matrix\n";
+		exit(-8);
 	}
 
 	int summBuffer{ 0 };
-	int stepen{ 0 };
+	std::size_t stepen{ 0 };
 	std::string buffer{};
 	std::size_t k = 0;
 
@@ -294,7 +301,7 @@ void Generator::preProcessor() {
 		borders[i].reserve(grandCollumn[0] + 1);
 	}
 
-	// переводим вероятности в инты и инициализируем границы. 
+	/*переводим вероятности в инты и инициализируем границы*/
 	for (auto it = str.begin(); it != str.end(); ++it) {
 		if (*it == '.') {
 			auto from = it;
@@ -312,43 +319,33 @@ void Generator::preProcessor() {
 		}
 		if (*it == 0x0a) {
 			if (summBuffer != pow(10, stepen)) {
-				std::cout << "PROBABILITIES SUMM DOESN'T EQUAL TO 1\n";
+				std::cerr << "PROBABILITIES SUMM DOESN'T EQUAL TO 1\n";
+				exit(-9);
 			}
 			summBuffer = 0;
 			++k;
 		}
 	}
 	
-	// проверка отступа.
-	if (offset < 0 or offset - row > 255) {
-		std::cout << "WRONG OFFSET\n";
+	/*проверка отступа*/
+	if (offset < 0 or offset - rows > 255) {
+		std::cerr << "WRONG OFFSET\n";
+		exit(-10);
 	}
-	// проверка количества.
+	/*Проверка количества элементов*/
 	if (quantityOfelem < 0) {
-		std::cout << "WRONG QAUNTITY\n";
-	}
-
-	// находим границы.
-	for (auto i = 0; i < borders.size(); ++i) {
-		for (auto j = 0; j < borders[i].size(); ++j) {
-			if (j != 0) {
-				borders[i].at(j) += borders[i].at(j - 1);
-			}
-		}
+		std::cerr << "WRONG QAUNTITY\n";
+		exit(-11);
 	}
 
 }
 
-void Generator::generate() 
-{
-	srand(time(NULL));
-	std::vector<std::vector<double>> probabilities{};
-	probabilities.resize(rows);
-	
+void Generator::castToDoubles(std::vector<std::vector<double>>& probabilities) {
 	std::string buffer{};
 	std::size_t k = 0;
+	probabilities.resize(rows);
 
-	// переводим вероятности в даблы.
+	/*переводим вероятности в даблы*/
 	for (auto it = str.begin(); it != str.end() and k < rows; ++it) {
 
 		if (it == str.begin() or *it != ' ' and *it != 0x0a) {
@@ -384,35 +381,19 @@ void Generator::generate()
 		}
 		else if (*it = 0x0a) ++k;
 	}
+}
 
-	bool tester = false;
+void Generator::generateByRow(std::vector<std::vector<double>>&& probabilities, int64_t K) {
+	srand(time(0));
 
-	k = 0;
-	int64_t K = 2;
-	int D = 2;
-	int64_t L = 1;
-	for (int i = 0; i < str.size(); ++i) {
-		if (str[i] == ' ') break;
-		++k;
-	}
-	k -= 1;
-	for (int i = 1; i < k; ++i) {
-		L *= 10;
-	}
-	for (K = 2; K < L; K *= 2);
-
-
-	std::mt19937 random(K);
-	
 	// генерация по строке.
-	if (tester == true) {
+	if (rows == 1) {
 		int tabl = 106;
 		int counter = 0;
 		if (!outputFile.is_open()) std::cout << "couldn't open the file\n";
 		for (;;) {
 			if (counter == quantityOfelem) break;
-			int64_t symbol = random();
-			std::cout << symbol << '\n';
+			int64_t symbol = rand() % K;
 
 			for (auto j = 0; j < grandCollumn[0] + 1; ++j) {
 				if (symbol < borders[0].at(j)) {
@@ -428,9 +409,10 @@ void Generator::generate()
 		}
 		outputFile.close();
 
-		double entropy{};
+		/*Подсчёт энтрапии*/
+		double entropy{0};
 
-		for (std::size_t i = 0; i < grandCollumn[0]; ++i) {
+		for (std::size_t i = 0; i < grandCollumn[0] + 1; ++i) {
 			if (probabilities[0].at(i) > 1e-9) {
 				entropy -= probabilities[0].at(i) * log(probabilities[0].at(i)) / log(2.);
 			}
@@ -443,19 +425,22 @@ void Generator::generate()
 		std::cout << "nx: " << superfluity << '\n';
 		std::cout << "n/n0: " << compressionCaf << '\n';
 	}
+}
 
-	// если больше 1 колонки
+void Generator::generateByMatrix(std::vector<std::vector<double>>&& probabilities, const int64_t K) {
+	srand(time(0));
+
 	std::vector<double> realProbability(Gauss(probabilities));
 	std::vector<double> realBorders = realProbability;
 	for (auto i = 1; i < realBorders.size() - 1; i++) {
 		realBorders[i] += realBorders[i - 1];
 	}
 	if (!outputFile.is_open()) std::cout << "couldn't open the file\n";
-	// генерация первого символа
+	/*генерация первого символа*/
 	bool toBreak{ false };
 	for (;;) {
 		for (auto i = 0; i < borders.size(); ++i) {
-			int64_t symbol = random();
+			int64_t symbol = rand() % K;
 			if (symbol < RAND_MAX * realBorders[i]) {
 				outputFile.put(offset + i);
 				toBreak = true;
@@ -464,35 +449,77 @@ void Generator::generate()
 		}
 		if (toBreak) break;
 	}
-	// генерация остальных символов
-
+	/*Генерация остальных символов*/
 	int tabl = 106;
 	int counter = 0;
 	std::size_t left{ 0 };
+	left = 0;
 	if (!outputFile.is_open()) std::cout << "couldn't open the file\n";
 	for (;;) {
 		if (counter == quantityOfelem) break;
-		int64_t symbol = random();
-		//std::cout << symbol << '\n';
-		left = 0;
+		int64_t symbol = rand() % K;
 		for (auto j = 0; j < grandCollumn[0] + 1; ++j) {
-			left = j;
+			//left = j;
 			if (symbol < borders[left].at(j)) {
 				if (counter == tabl) {
 					outputFile.put(0x0a);
 					tabl += 106;
-					left = j;
 				}
 				++counter;
 				outputFile.put(offset + j);
+				left = j;
 				j = grandCollumn[0] + 1;
 			}
-			//if (left < j) ++left;
 		}
 	}
-	outputFile.close();
-
 
 }
 
-// 4003848514
+void Generator::generate() 
+{
+	/*Очищаем исходные данные*/
+	clear();
+	/*Проверяем исходные данные на валидность, в соответсвии с условием*/
+	validChecking();
+
+	std::vector<std::vector<double>> probabilities{};
+
+	castToDoubles(probabilities);
+
+	/*Находим границы*/
+	for (auto i = 0; i < borders.size(); ++i) {
+		for (auto j = 0; j < borders[i].size(); ++j) {
+			if (j != 0) {
+				borders[i].at(j) += borders[i].at(j - 1);
+			}
+		}
+	}
+
+	/*Генерация К*/
+	int64_t k = 0;
+	int64_t K = 2;
+	int64_t L = 1;
+
+	for (int i = 0; i < str.size(); ++i) {
+		if (str[i] == ' ') break;
+		++k;
+	}
+	k -= 1;
+
+	for (int i = 1; i < k; ++i) {
+		L *= 10;
+	}
+
+	for (K = 2; K < L; K *= 2);
+
+	switch (rows)
+	{
+	case 1: 
+		generateByRow(std::move(probabilities),K);
+		break;
+	default:
+		generateByMatrix(std::move(probabilities),K);
+		break;
+	}
+
+}
