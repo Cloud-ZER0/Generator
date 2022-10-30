@@ -31,7 +31,7 @@ Generator::Generator(const std::string& filename, const std::string& output)
 	file.seekg(0, std::ios::end);
 	int size = static_cast<int>(file.tellg());
 	file.seekg(0, std::ios::beg);
-	str.resize(size);
+	str.resize(size+1);
 	file.read(str.data(), size);
 	file.close();
 	str.push_back(0x0a);
@@ -128,7 +128,7 @@ std::vector<double> Generator::Gauss(const std::vector<std::vector<double>>& mat
 }
 
 
-void Generator::clear() 
+void Generator::Clear() 
 {
 	/*Убираем все символы кроме цифр, запятых и точек*/ 
 	for (auto& i : str) {
@@ -148,16 +148,18 @@ void Generator::clear()
 			and i != 0x0a)
 			i = ' ';
 	}
+
 	/*Меняем точки на пробелы*/ 
 	for (auto i = 0; i < str.size(); ++i) {
-		if ((i == 0 and str[i] == '.') or (i == str.size() - 2 and str[i] == '.')) str[i] = ' ';
+		if ((i == str.size() - 2 and str[i] == '.')) str[i] = ' ';
 		else if (i != 0 and i != str.size() - 1 and str[i] == '.') {
 			if (str[i - 1] == '.'
 				or str[i + 1] == ' '
-				or str[i + 1] == '.') 
+				or str[i + 1] == '.')
 				str[i] = ' ';
 		}
 	}
+
 	/*Удаляем лишнее пробелы*/
 	for (auto i = str.begin(); i != str.end(); ++i) {
 		if (i != str.begin() and i != (str.end() - 1) and *i == ' ') {
@@ -214,6 +216,7 @@ void Generator::clear()
 		}
 	}
 
+	str.reserve(str.size() * 2);
 	// добавляем 0 перед точкой, если необходимо.
 	for (auto it = str.begin(); it != str.end(); ++it) {
 		if (*it == '.' and it == str.begin()) {
@@ -245,6 +248,7 @@ void Generator::clear()
 		}
 	}
 
+	str.shrink_to_fit();
 	std::cout << str << '\n';
 
 }
@@ -265,7 +269,7 @@ void Generator::validChecking() {
 	}
 
 	assert(rows >= 1);
-	grandCollumn.resize(rows);
+	grandCollumn.resize(rows,1);
 	
 	/*Считаем количество коллонок в каждой строке*/
 	auto counter = 0;
@@ -285,7 +289,7 @@ void Generator::validChecking() {
 	}
 	
 	/*Проверяем квадратная ли матрица*/
-	if (rows != grandCollumn[0] + 1 and rows != 1 and grandCollumn.size() != 1) {
+	if (rows != grandCollumn[0]  and rows != 1 and grandCollumn.size() != 1) {
 		std::cerr << "Not squared Matrix\n";
 		exit(-8);
 	}
@@ -298,7 +302,7 @@ void Generator::validChecking() {
 	borders.resize(rows);
 
 	for (auto i = 0; i < borders.size(); ++i) {
-		borders[i].reserve(grandCollumn[0] + 1);
+		borders[i].reserve(grandCollumn[0]);
 	}
 
 	/*переводим вероятности в инты и инициализируем границы*/
@@ -340,7 +344,7 @@ void Generator::validChecking() {
 
 }
 
-void Generator::castToDoubles(std::vector<std::vector<double>>& probabilities) {
+void Generator::castToDoubles() {
 	std::string buffer{};
 	std::size_t k = 0;
 	probabilities.resize(rows);
@@ -383,51 +387,61 @@ void Generator::castToDoubles(std::vector<std::vector<double>>& probabilities) {
 	}
 }
 
-void Generator::generateByRow(std::vector<std::vector<double>>&& probabilities, int64_t K) {
-	srand(time(0));
-
-	// генерация по строке.
-	if (rows == 1) {
-		int tabl = 106;
-		int counter = 0;
-		if (!outputFile.is_open()) std::cout << "couldn't open the file\n";
-		for (;;) {
-			if (counter == quantityOfelem) break;
-			int64_t symbol = rand() % K;
-
-			for (auto j = 0; j < grandCollumn[0] + 1; ++j) {
-				if (symbol < borders[0].at(j)) {
-					if (counter == tabl) {
-						outputFile.put(0x0a);
-						tabl += 106;
-					}
-					++counter;
-					outputFile.put(offset + j);
-					j = grandCollumn[0] + 1;
+void Generator::makeRowGen(int64_t K) {
+	assert(file);
+	int counter = 0;
+	int tabl = 106;
+	int64_t symbol{};
+	while (counter < quantityOfelem) {
+		symbol = rand() % K;
+		for (auto i = 0; i < grandCollumn[0]; ++i) {
+			switch (symbol < borders[0].at(i))
+			{
+			case true:
+				if (counter >= tabl) {
+					outputFile.put(0x0a);
+					tabl += 106;
 				}
-			}
+				outputFile.put(offset + i);
+				i = grandCollumn[0];
+				++counter;
+				break;
+			default:
+				break;
+			}	
 		}
-		outputFile.close();
-
-		/*Подсчёт энтрапии*/
-		double entropy{0};
-
-		for (std::size_t i = 0; i < grandCollumn[0] + 1; ++i) {
-			if (probabilities[0].at(i) > 1e-9) {
-				entropy -= probabilities[0].at(i) * log(probabilities[0].at(i)) / log(2.);
-			}
-		}
-
-		double superfluity = 1.0 - entropy / (log(static_cast<double>(grandCollumn[0] + 1)) / log(2.));
-		double compressionCaf = 1.0 / (1.0 - superfluity);
-
-		std::cout << "H(A): " << entropy << '\n';
-		std::cout << "nx: " << superfluity << '\n';
-		std::cout << "n/n0: " << compressionCaf << '\n';
 	}
 }
 
-void Generator::generateByMatrix(std::vector<std::vector<double>>&& probabilities, const int64_t K) {
+void Generator::generateByRow(int64_t K) {
+	// генерация по строке.
+	srand(time(0));
+	auto start = std::chrono::steady_clock::now();
+	makeRowGen(K);
+	auto elapsed = std::chrono::steady_clock::now() - start;
+
+	std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() << "ms" << '\n';
+
+	/*Подсчёт энтропии*/
+	double entropy{ 0 };
+
+	for (std::size_t i = 0; i < grandCollumn[0]; ++i) {
+		if (probabilities[0].at(i) > 1e-9) {
+			entropy -= probabilities[0].at(i) * log(probabilities[0].at(i)) / log(2.);
+		}
+	}
+
+	double superfluity = 1.0 - entropy / (log(static_cast<double>(grandCollumn[0])) / log(2.));
+	double compressionCaf = 1.0 / (1.0 - superfluity);
+
+	std::cout << "H(A): " << entropy << '\n';
+	std::cout << "nx: " << superfluity << '\n';
+	std::cout << "n/n0: " << compressionCaf << '\n';
+
+}
+// 0.908
+
+void Generator::generateByMatrix(int64_t K) {
 	srand(time(0));
 
 	std::vector<double> realProbability(Gauss(probabilities));
@@ -452,15 +466,15 @@ void Generator::generateByMatrix(std::vector<std::vector<double>>&& probabilitie
 	/*Генерация остальных символов*/
 	int tabl = 106;
 	int counter = 0;
-	std::size_t left{ 0 };
-	left = 0;
+	int64_t symbol = 0;
+	std::size_t left = 0 ;
 	if (!outputFile.is_open()) std::cout << "couldn't open the file\n";
-	for (;;) {
-		if (counter == quantityOfelem) break;
-		int64_t symbol = rand() % K;
-		for (auto j = 0; j < grandCollumn[0] + 1; ++j) {
-			//left = j;
-			if (symbol < borders[left].at(j)) {
+	while (counter != quantityOfelem) {
+		symbol = rand() % K;
+		for (auto j = 0; j < grandCollumn[0]; ++j) {
+			switch (symbol < borders[left].at(j))
+			{
+			case true:
 				if (counter == tabl) {
 					outputFile.put(0x0a);
 					tabl += 106;
@@ -469,22 +483,37 @@ void Generator::generateByMatrix(std::vector<std::vector<double>>&& probabilitie
 				outputFile.put(offset + j);
 				left = j;
 				j = grandCollumn[0] + 1;
+				break;
+			default:
+				break;
 			}
 		}
 	}
+	/*Безусловные*/
+	double entropy{ 0 };
+
+	for (std::size_t i = 0; i < probabilities.size(); ++i) {
+		for(std::size_t j = 0; j < grandCollumn[0]+1; ++j)
+			if (probabilities[i].at(j) > 1e-9) {
+				entropy -= probabilities[i].at(j) * log(probabilities[i].at(j)) / log(2.);
+			}
+	}
+
+	double superfluity = 1.0 - entropy / (log(static_cast<double>(rows)) / log(2.));
+	std::cout << "H(A): " << entropy << '\n';
+	std::cout << "nx: " << superfluity << '\n';
+	/*Условные*/
+
 
 }
 
-void Generator::generate() 
+void Generator::Generate() 
 {
-	/*Очищаем исходные данные*/
-	clear();
 	/*Проверяем исходные данные на валидность, в соответсвии с условием*/
 	validChecking();
 
-	std::vector<std::vector<double>> probabilities{};
-
-	castToDoubles(probabilities);
+	/*Находим вероятности*/
+	castToDoubles();
 
 	/*Находим границы*/
 	for (auto i = 0; i < borders.size(); ++i) {
@@ -515,10 +544,10 @@ void Generator::generate()
 	switch (rows)
 	{
 	case 1: 
-		generateByRow(std::move(probabilities),K);
+		generateByRow(K);
 		break;
 	default:
-		generateByMatrix(std::move(probabilities),K);
+		generateByMatrix(K);
 		break;
 	}
 

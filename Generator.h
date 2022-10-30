@@ -6,6 +6,8 @@
 #include <charconv>
 #include <random>
 #include <cassert>
+#include <chrono>
+
 
 
 class Generator
@@ -23,10 +25,11 @@ public:
 	
 	Generator(const std::string& filename, const std::string& output);
 
-	void generate();
+	void Generate();
+
+	void Clear();
 
 private:
-	void clear();
 
 	void validChecking();
 
@@ -36,23 +39,28 @@ private:
 
 	inline void GaussHelper(const std::vector<double>& first, std::vector<double>& second, double value);
 
-	void castToDoubles(std::vector<std::vector<double>>& probabilities);
+	void castToDoubles();
 
-	void generateByRow(std::vector<std::vector<double>>&& probabilities, int64_t K);
+	void generateByRow(int64_t K);
 
-	void generateByMatrix(std::vector<std::vector<double>>&& probabilities, int64_t K);
+	void generateByMatrix(int64_t K);
+
+	void makeRowGen(int64_t K);
+
+
 
 private:
 	std::ifstream file{};
 	std::ofstream outputFile{};
-	int offset{48};
-	int quantityOfelem{100000};
 	std::string str{};
 	std::vector<int> grandCollumn{};
 	std::vector<std::vector<int>> borders{};
-	int rows = 0;
-
+	std::vector<std::vector<double>> probabilities{};
+	int offset{ 48 };
+	int quantityOfelem{ 100000 };
+	int rows{ 0 };
 };
+
 // строка 
 // матрица
 // равновероятный 
