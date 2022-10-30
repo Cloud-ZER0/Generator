@@ -389,7 +389,31 @@ void Generator::castToDoubles() {
 
 void Generator::makeRowGen(int64_t K) {
 	assert(file);
+
+	std::vector<char> local_buffer_;
+	local_buffer_.reserve(quantityOfelem / 4);
 	int counter = 0;
+	int tabl = 106;
+	int64_t symbol{};
+	while (counter < quantityOfelem / 5) {
+	symbol = rand() % K;
+		for (auto i = 0; i < grandCollumn[0]; ++i) {
+			if (symbol < borders[0].at(i)) {
+				if (counter >= tabl) {
+				local_buffer_.push_back(0x0a);
+				tabl += 106;
+				}
+				local_buffer_.push_back(offset + i);
+				i = grandCollumn[0];
+				++counter;
+			}
+		}
+	}
+	std::lock_guard lock(localMutex);
+	buffer.emplace_back(std::move(local_buffer_));
+	
+
+	/*int counter = 0;
 	int tabl = 106;
 	int64_t symbol{};
 	while (counter < quantityOfelem) {
@@ -410,14 +434,47 @@ void Generator::makeRowGen(int64_t K) {
 				break;
 			}	
 		}
-	}
+	}*/
 }
+//1 209    902
+//914      986
+//816      1048
+//875      914
+//1001		892
+//922		911
+
+//	7 845		7 266
+//	7 887		7 060
+//  8 421		7 156
+//	7 846		7 457
+//  8 381		7 498
+
+
+//37011ms			32521ms
 
 void Generator::generateByRow(int64_t K) {
 	// генерация по строке.
 	srand(time(0));
 	auto start = std::chrono::steady_clock::now();
-	makeRowGen(K);
+	//makeRowGen(K);
+	std::vector<std::thread> Tpool;
+	for (auto i = 0; i < 5; ++i) {
+		Tpool.emplace_back([this, K]() mutable {
+			makeRowGen(K);
+		});
+	}
+	buffer.reserve(5);
+
+	for (auto&& th : Tpool) {
+		th.join();
+	}
+
+	for (auto i = 0; i < buffer.size(); ++i) {
+		for (auto j = 0; j < buffer[i].size(); ++j) {
+			outputFile.put(buffer[i].operator[](j));
+		}
+	}
+
 	auto elapsed = std::chrono::steady_clock::now() - start;
 
 	std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() << "ms" << '\n';

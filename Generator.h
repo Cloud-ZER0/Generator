@@ -6,6 +6,9 @@
 #include <charconv>
 #include <random>
 #include <cassert>
+#include <chrono>
+#include <thread>
+#include <mutex>
 
 
 
@@ -55,8 +58,10 @@ private:
 	std::vector<int> grandCollumn{};
 	std::vector<std::vector<int>> borders{};
 	std::vector<std::vector<double>> probabilities{};
+	std::vector<std::vector<char>> buffer; // GUARDED BY LOCALMUTEX
+	std::mutex localMutex;
 	int offset{ 48 };
-	int quantityOfelem{ 100000 };
+	int quantityOfelem{ 10'000'000 };
 	int rows{ 0 };
 };
 
