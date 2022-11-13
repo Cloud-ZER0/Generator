@@ -2,13 +2,12 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <vector>
 #include <charconv>
 #include <random>
-#include <cassert>
 #include <chrono>
 #include <thread>
 #include <mutex>
+#include "Matrix.h"
 
 
 
@@ -35,12 +34,6 @@ private:
 
 	void validChecking();
 
-	std::vector<double> Gauss(const std::vector<std::vector<double>>& matrix);
-
-	inline void castToZero(const std::size_t& position, std::vector<double>& matrixRow);
-
-	inline void GaussHelper(const std::vector<double>& first, std::vector<double>& second, double value);
-
 	void castToDoubles();
 
 	void generateByRow(int64_t K);
@@ -61,7 +54,7 @@ private:
 	std::vector<std::vector<char>> buffer; // GUARDED BY LOCALMUTEX
 	std::mutex localMutex;
 	int offset{ 48 };
-	int quantityOfelem{ 10'000'000 };
+	int quantityOfelem{ 1'000'000 };
 	int rows{ 0 };
 };
 

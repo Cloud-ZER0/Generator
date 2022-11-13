@@ -37,97 +37,6 @@ Generator::Generator(const std::string& filename, const std::string& output)
 	str.push_back(0x0a);
 }
 
-inline void Generator::castToZero(const std::size_t& position, std::vector<double>& matrixRow)  
-{
-	assert(position < matrixRow.size());
-	auto devisor = matrixRow[position];
-	for (auto i = 0; i < matrixRow.size(); ++i) {
-		matrixRow[i] = (matrixRow[i] == 0) ? 0 : matrixRow[i] / devisor;
-	}
-}
-
-inline void Generator::GaussHelper (const std::vector<double>& first, std::vector<double>& second, double value)  
-{
-	assert(first.size() == second.size());
-	for (auto i = 0; i < first.size(); ++i) {
-		if (value < 0) {
-			second[i] = (second[i] == 0) ? 0 :
-				second[i] + (first[i] * abs(value));
-		}
-		else {
-			second[i] = (second[i] == 0) ? 0 :
-				second[i] - (first[i] * value);
-		}
-		
-	}
-}
-
-std::vector<double> Generator::Gauss(const std::vector<std::vector<double>>& matrix)
-{
-	std::vector<std::vector<double>> localCopy{ matrix };
-
-	std::vector<double> vectorOfFree{};
-	vectorOfFree.reserve(localCopy.size() - 1);
-
-	// вектор свободных членов 
-	for (auto i = 0; i < matrix.size() - 1; ++i) {
-		vectorOfFree.push_back(localCopy[i].back());
-		//удаляем из локальной копии матрицы последний элемент, тк как запушили его в специальный вектор
-		localCopy[i].pop_back();
-	}
-	// удаляем последний вектор из локальной матрицы, тк как для рассчёта достаточно matrix.size() - 1 уравнений
-	localCopy.pop_back();
-
-	// построение системы уравнений
-	for (auto i = 0; i < localCopy.size(); ++i) {
-		for(auto j = 0; j < localCopy[i].size(); ++j) {
-		
-			localCopy[i].operator[](j) = (i == j) ?
-				1.0 + vectorOfFree[i] - localCopy[i].operator[](j)
-				: vectorOfFree[i] - localCopy[i].operator[](j);
-		}
-	}
-	// приведение к простой матрице
-	for (auto i = 0; i < localCopy.size(); ++i) {
-		localCopy[i].push_back(vectorOfFree[i]);
-	}
-	
-	// реализация метода Гаусса
-	for (std::size_t i = 0; i < localCopy.size(); ++i) {
-		castToZero(i, localCopy[i]);
-
-		if (i == 0) {
-			for (auto j = i + 1; j < localCopy.size(); ++j) {
-				GaussHelper(localCopy[i], localCopy[j], localCopy[j].operator[](i));
-			}
-		}
-		
-		else if (0 < i and i < localCopy.size()) {
-			for (int j = i - 1; j >= 0; --j) {
-				GaussHelper(localCopy[i], localCopy[j], localCopy[j].operator[](i));
-			}
-			for (auto k = i + 1; k < localCopy.size(); ++k) {
-				GaussHelper(localCopy[i], localCopy[k], localCopy[k].operator[](i));
-			}
-		}
-	}
-
-	// создаем вектор с ответами и инициализируем результатом, полученным по гаусу
-	std::vector<double> result{};
-	result.reserve(localCopy.size());
-	for (auto&& row : localCopy) {
-		result.push_back(row.back());
-	}
-	double third = 0;
-	for (auto i : result) {
-		third += i;
-	}
-	result.push_back(1 - third);
-
-	return result;
-}
-
-
 void Generator::Clear() 
 {
 	/*Убираем все символы кроме цифр, запятых и точек*/ 
@@ -458,12 +367,12 @@ void Generator::generateByRow(int64_t K) {
 	auto start = std::chrono::steady_clock::now();
 	//makeRowGen(K);
 	std::vector<std::thread> Tpool;
+	buffer.reserve(5);
 	for (auto i = 0; i < 5; ++i) {
 		Tpool.emplace_back([this, K]() mutable {
 			makeRowGen(K);
 		});
 	}
-	buffer.reserve(5);
 
 	for (auto&& th : Tpool) {
 		th.join();
@@ -485,8 +394,11 @@ void Generator::generateByRow(int64_t K) {
 	for (std::size_t i = 0; i < grandCollumn[0]; ++i) {
 		if (probabilities[0].at(i) > 1e-9) {
 			entropy -= probabilities[0].at(i) * log(probabilities[0].at(i)) / log(2.);
+			std::cout << probabilities[0].operator[](i) << ' ';
 		}
 	}
+
+	std::cout << '\n';
 
 	double superfluity = 1.0 - entropy / (log(static_cast<double>(grandCollumn[0])) / log(2.));
 	double compressionCaf = 1.0 / (1.0 - superfluity);
@@ -500,8 +412,8 @@ void Generator::generateByRow(int64_t K) {
 
 void Generator::generateByMatrix(int64_t K) {
 	srand(time(0));
-
-	std::vector<double> realProbability(Gauss(probabilities));
+	Matrix probab(probabilities);
+	std::vector<double> realProbability = probab.Gauss();
 	std::vector<double> realBorders = realProbability;
 	for (auto i = 1; i < realBorders.size() - 1; i++) {
 		realBorders[i] += realBorders[i - 1];
@@ -549,18 +461,49 @@ void Generator::generateByMatrix(int64_t K) {
 	/*Безусловные*/
 	double entropy{ 0 };
 
-	for (std::size_t i = 0; i < probabilities.size(); ++i) {
+	/*for (std::size_t i = 0; i < probabilities.size(); ++i) {
 		for(std::size_t j = 0; j < grandCollumn[0]+1; ++j)
 			if (probabilities[i].at(j) > 1e-9) {
 				entropy -= probabilities[i].at(j) * log(probabilities[i].at(j)) / log(2.);
 			}
-	}
+	}*/
 
-	double superfluity = 1.0 - entropy / (log(static_cast<double>(rows)) / log(2.));
+	/*Безусловная этропия*/
+	for (std::size_t i = 0; i < grandCollumn[0]; ++i) {
+		if (probabilities[0].at(i) > 1e-9) {
+			entropy -= realProbability[i] * log(realProbability[i]) / log(2.);
+		}
+	}
+	/*Безусловная избыточность*/
+	double superfluity = 1.0 - entropy / (log(static_cast<double>(grandCollumn[0])) / log(2.));
+
+	/*условная этропия*/
+
+	double Q{ 0 };
+	double buffer_{0};
+
+	for (auto i = 0; i < realProbability.size(); ++i) {
+		for (auto j = 0; j < probabilities[i].size(); ++j) {
+			buffer_ += probabilities[i].operator[](j) * log(probabilities[i].operator[](j)) / log(2.);
+		}
+		Q -= realProbability[i] * buffer_;
+		buffer_ = 0;
+	}
+	/*Рассчет условной избыточности*/
+
+	double X = 1.0 - Q / (log(static_cast<double>(rows)) / log(2.));
+
+	/*Вывод рассчетов*/
 	std::cout << "H(A): " << entropy << '\n';
 	std::cout << "nx: " << superfluity << '\n';
-	/*Условные*/
+	std::cout << "Szhatie: " << 1.0 / (1.0 - superfluity) << '\n';
+	std::cout << "Variable H(A): " << Q << '\n';
+	std::cout << "Variable nx: " << X << '\n';
+	std::cout << "Szhatie: " << 1.0 / (1.0 - X) << '\n';
 
+	for (auto i : realProbability) {
+		std::cout << i << ' ';
+	}
 
 }
 
